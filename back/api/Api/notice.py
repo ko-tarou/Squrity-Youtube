@@ -1,3 +1,4 @@
+from Alchemy.model import Notice
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import sessionmaker
