@@ -1,26 +1,11 @@
-from Alchemy.model import Notice
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from db.database import SessionLocal
+from schemas.notice import NoticeCreate, NoticeRead
+from crud import notice as crud_notice
 
-DATABASE_URL = "mysql+pymysql://user:password@localhost/dbname"
+router = APIRouter(prefix="/notices", tags=["Notices"])
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-app = FastAPI()
-
-# Pydantic モデル
-class NoticeCreate(BaseModel):
-    receive_user_id: int
-
-class NoticeRead(BaseModel):
-    notice_id: int
-    receive_user_id: int
-
-# DBセッション取得用
 def get_db():
     db = SessionLocal()
     try:
@@ -28,19 +13,13 @@ def get_db():
     finally:
         db.close()
 
-# 追加API
-@app.post("/notices/", response_model=NoticeRead)
-def create_notice(notice: NoticeCreate, db: Session = next(get_db())):
-    db_notice = Notice(receive_user_id=notice.receive_user_id)
-    db.add(db_notice)
-    db.commit()
-    db.refresh(db_notice)
-    return db_notice
+@router.post("/", response_model=NoticeRead)
+def create_notice_api(notice: NoticeCreate, db: Session = Depends(get_db)):
+    return crud_notice.create_notice(db, notice)
 
-# 取得API
-@app.get("/notices/{notice_id}", response_model=NoticeRead)
-def read_notice(notice_id: int, db: Session = next(get_db())):
-    notice = db.query(Notice).filter(Notice.notice_id == notice_id).first()
-    if notice is None:
+@router.get("/{notice_id}", response_model=NoticeRead)
+def read_notice_api(notice_id: int, db: Session = Depends(get_db)):
+    db_notice = crud_notice.get_notice(db, notice_id)
+    if db_notice is None:
         raise HTTPException(status_code=404, detail="Notice not found")
-    return notice
+    return db_notice
